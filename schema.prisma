@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./db/data.db"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime?
+  name         String?
+  email        String?
+  password     String?
+  phone        String?
+  roleId       String? // superadmin, admin,user
+  departmentId String? // from departments table
+  status       String? // from status table
+}
+
+model Role {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime?
+  roleName  String? // exisiting are - [Admin,HR,sales,Marketing,Manager,Employee]
+}
+
+model Permission {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime?
+  name      String? // default are - [create_lead,delete_lead,edit_inventory,send_mail]
+}
+
+model Department {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime?
+  name      String? // default are - [sales,hr,Accounts,support]
+}
+
+model Task {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime?
+
+  title       String?
+  description String?
+  leadId      String? // can be null
+  assignedBy  String? // user id
+  assignedTo  String? // user id
+  priority    String? // low,medium,high
+  weightage   String? // easy,medium,hard
+  status      String? // pending,completed,deleted
+  dueDate     DateTime?
+  completedAt DateTime? //null at create
+}

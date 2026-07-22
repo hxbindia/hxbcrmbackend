@@ -7,6 +7,9 @@ const taskServices = {
   },
   findOne:async(query)=>{
     return await prisma.task.findFirst({where:query})
+  },
+  findAll:async(query)=>{
+    return await prisma.task.findMany({where:query})
   }
 };
 

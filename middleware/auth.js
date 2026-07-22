@@ -16,7 +16,7 @@ export async function auth(req, res, next) {
       return responseFn(res, 404, true, "Token not present", null);
     }
     const token = bearerToken.split("Bearer ")[1];
-    
+
     const decoded = jwt.decode(token);
     if (!decoded) {
       return responseFn(res, 401, true, "Invalid token", null);
@@ -26,6 +26,8 @@ export async function auth(req, res, next) {
     if (decoded.exp < now) {
       return responseFn(res, 401, true, "Token expired", null);
     }
+    req.organisationId = decoded.organisationId;
+    req.userId = decoded.id;
     next();
   } catch (error) {
     console.log(`Error in auth middleware: ${error}`);

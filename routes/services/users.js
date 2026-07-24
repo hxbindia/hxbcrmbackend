@@ -7,6 +7,9 @@ const userServices = {
   },
   findOne:async(query)=>{
     return await prisma.user.findFirst({where:query})
+  },
+  findAll:async(query)=>{
+    return await prisma.user.findMany({where:query})
   }
 };
 

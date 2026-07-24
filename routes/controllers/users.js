@@ -7,7 +7,6 @@ import { auth } from "../../middleware/auth.js";
 import organisationServices from "../services/organisation.js";
 const router = express.Router();
 
-
 //login
 router.post("/login", async (req, res, next) => {
   const validationSchema = Joi.object({
@@ -89,17 +88,30 @@ router.post("/create", async (req, res, next) => {
     const validatedBody = await validationSchema.validateAsync(req.body);
     const existingUser = await userServices.findOne({
       email: validatedBody.email,
-      organisationId:req.organisationId
+      organisationId: req.organisationId,
     });
     // console.log(existingUser,'========>existing')
     if (existingUser && existingUser.email === validatedBody.email) {
       return responseFn(res, 400, true, "Email already registered", null);
     }
-    validatedBody.organisationId = req.organisationId
+    validatedBody.organisationId = req.organisationId;
     const result = await userServices.create(validatedBody);
     return responseFn(res, 200, false, "User Created", result);
   } catch (error) {
     console.log(`Error while creating a user : ${error}`);
+    return next(error);
+  }
+});
+
+router.get("/getAllOrgUsers", async (req,res,next) => {
+  try {
+    const result = await userServices.findAll({
+
+      organisationId: req.organisationId,
+    });
+    return responseFn(res, 200, false, `${result.length} users found`, result);
+  } catch (error) {
+    console.log(`Error getting all org users : ${error}`);
     return next(error);
   }
 });
@@ -117,9 +129,14 @@ router.post("/verifyToken", async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     req.userId = decoded.id;
-    req.organisationId = decoded.organisationId
-    return responseFn(res,200,false,'Token verification successfull',decoded)
-
+    req.organisationId = decoded.organisationId;
+    return responseFn(
+      res,
+      200,
+      false,
+      "Token verification successfull",
+      decoded,
+    );
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       return responseFn(res, 401, true, "Token has expired", null);

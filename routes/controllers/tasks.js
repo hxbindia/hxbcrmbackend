@@ -16,14 +16,12 @@ router.post("/create", async (req, res, next) => {
     assignedTo: Joi.string().required(),
     priority: Joi.string().default("low"),
     weightage: Joi.string().default("easy"),
-    dueDate: Joi.string().required(),
+    dueDate: Joi.string().required(), // saving unix time stamp in db (check schema.primsa file)
   });
 
   try {
     const validatedBody = await validationSchema.validateAsync(req.body);
-    validatedBody.dueDate = String(
-      Math.floor(Date.now(validatedBody.dueDate) / 1000),
-    );
+
     validatedBody.organisationId = req.organisationId;
     validatedBody.assignedBy = req.userId;
     validatedBody.status = "pending";
@@ -39,11 +37,15 @@ router.post("/create", async (req, res, next) => {
 // get all task list assigned to user
 // apply filters in this api too
 router.get("/getAll", async (req, res, next) => {
+
   try {
     // console.log(req.userId,'====userid')
+     const { search = "", status = "all" } = req.query;
     const result = await taskServices.findAll({
       assignedTo: req.userId,
       organisationId: req.organisationId,
+      search,
+      status
     });
     if(result.length === 0){
       return responseFn(res,404,false,'No Tasks Found',result)

@@ -65,7 +65,7 @@ model Task {
   priority    String? // low,medium,high
   weightage   String? // easy,medium,hard
   status      String? // pending,completed,deleted
-  dueDate     DateTime?
-  completedAt DateTime? //null at create
+  dueDate     String?
+  completedAt String? //null at create
    organisationId String?
 }

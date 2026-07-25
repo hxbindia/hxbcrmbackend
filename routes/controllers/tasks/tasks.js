@@ -42,7 +42,7 @@ router.get("/getAll", async(req, res, next) => {
         // console.log(req.userId,'====userid')
         const { search = "", status = "all" } = req.query;
         const result = await taskServices.findAll({
-            assignees: req.userId,
+            assigneeId: req.userId,
             organisationId: req.organisationId,
             search,
             status

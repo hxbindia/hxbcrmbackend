@@ -6,7 +6,7 @@ import userServices from "../routes/services/users.js";
 export async function auth(req, res, next) {
     try {
         const allowedPaths = ["/login", "/signup"];
-        // console.log(req.path)
+        console.log(req.path, 'api path')
         if (allowedPaths.includes(req.path)) {
             return next();
         }

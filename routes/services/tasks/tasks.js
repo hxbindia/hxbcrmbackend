@@ -8,34 +8,37 @@ const taskServices = {
     findOne: async(query) => {
         return await prisma.task.findFirst({ where: query })
     },
-    findAll: async({ assignees, organisationId, search = "", status = "all" }) => {
+    findAll: async({ assigneeId, organisationId, search = "", status = "all" }) => {
 
         const where = {
-            assignees,
             organisationId,
+            ...(assigneeId && {
+                assignees: {
+                    some: {
+                        userId: assigneeId
+                    }
+                }
+            }),
             ...(status !== "all" && {
-                status
+                statusId: status // pass the TaskStatus id here, not a string like "pending"
             }),
             ...(search && {
-                OR: [{
-                        title: {
-                            contains: search,
-
-                        }
-                    },
-                    {
-                        description: {
-                            contains: search,
-
-                        }
-                    }
+                OR: [
+                    { title: { contains: search } },
+                    { description: { contains: search } }
                 ]
             })
         };
-        // console.log(where,'=====>where')
 
         return await prisma.task.findMany({
             where,
+            include: {
+                assignees: { include: { user: true } },
+                status: true,
+                priority: true,
+                weightage: true,
+                lead: true,
+            },
             orderBy: {
                 createdAt: "desc"
             }

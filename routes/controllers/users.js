@@ -4,6 +4,7 @@ import Joi from "joi";
 import { responseFn } from "../../js/Fn.js";
 import userServices from "../services/users.js";
 import { auth } from "../../middleware/auth.js";
+import { seedDefaultTaskStatuses } from "../../js/default.js";
 import organisationServices from "../services/organisation.js";
 const router = express.Router();
 
@@ -62,7 +63,9 @@ router.post("/signup", async(req, res, next) => {
         if (existingUser) {
             return responseFn(res, 400, true, 'Email already in use', null)
         }
-        const result = await organisationServices.create(validatedBody);
+        const result = await organisationServices.create(validatedBody); // this return user object with organisationId within object
+
+        await seedDefaultTaskStatuses(result.organisationId)
         if (result) {
             return responseFn(
                 res,

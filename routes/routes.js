@@ -60,19 +60,19 @@ router.use("/leadInventoryItem", auth, leadInventoryItemRouter);
 //task routes
 router.use("/tasks", auth, taskRouter);
 router.use("/taskAssignee", auth, taskAssigneeRouter);
-router.use('/taskFile', auth, taskFileRouter);
-router.use('/taskNotificationSetting', auth, taskNotificationSettingRouter)
-router.use('/taskPriority', auth, taskPriorityRouter)
-router.use('/taskStatus', auth, taskStatusRouter)
-router.use('/taskWeightage', auth, taskWeightageRouter)
-    //task routes end
+router.use("/taskFile", auth, taskFileRouter);
+router.use("/taskNotificationSetting", auth, taskNotificationSettingRouter);
+router.use("/taskPriority", auth, taskPriorityRouter);
+router.use("/taskStatus", auth, taskStatusRouter);
+router.use("/taskWeightage", auth, taskWeightageRouter);
+//task routes end
 
 // lead routes
 router.use("/lead", auth, leadRouter);
-router.use('/leadActivity', auth, leadActivityRouter)
-router.use('/leadSource', auth, leadSourceRouter)
-router.use('/leadStatus', auth, leadStatusRouter)
-    // lead routes end
+router.use("/leadActivity", auth, leadActivityRouter);
+router.use("/leadSource", auth, leadSourceRouter);
+router.use("/leadStatus", auth, leadStatusRouter);
+// lead routes end
 
 // roles and permissions routes
 

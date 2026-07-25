@@ -7,65 +7,478 @@ datasource db {
   url      = "file:./db/data.db"
 }
 
-model User {
-  id             String    @id @default(uuid())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime?
-  name           String?
-  email          String?
-  password       String?
-  phone          String?
-  roleId         String? // superadmin, admin,user
-  departmentId   String? // from departments table
-  status         String? // from status table
-  organisationId String?
-}
+// ─────────────────────────────────────────────
+// ORG STRUCTURE
+// ─────────────────────────────────────────────
 
 model Organisation {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
-  updatedAt DateTime?
-  name      String? 
+  updatedAt DateTime  @updatedAt
+  name      String
+
+  users       User[]
+  roles       Role[]
+  permissions Permission[]
+  departments Department[]
+  branches    Branch[]
+  leads       Lead[]
+  tasks       Task[]
+  inventoryItems     InventoryItem[]
+  inventoryCategories InventoryCategory[]
+  leadSources LeadSource[]
+  leadStatuses    LeadStatus[]
+  taskStatuses    TaskStatus[]
+  taskPriorities  TaskPriority[]
+  taskWeightages  TaskWeightage[]
+}
+
+model Branch {
+  id             String    @id @default(uuid())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  name           String // e.g. delhi, gurgaon, noida
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  departments Department[]
+  users       User[]
+  leads       Lead[]
+  inventoryItems InventoryItem[]
+}
+
+model Department {
+  id             String    @id @default(uuid())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  name           String // e.g. sales, hr, accounts, support
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  users User[]
+}
+
+// ─────────────────────────────────────────────
+// AUTH / RBAC
+// ─────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  name     String?
+  email    String  @unique
+  password String?
+  phone    String?
+  avatarUrl String?
+  status   String  @default("active") // active, inactive, invited
+
+  roleId String?
+  role   Role? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  // Leads
+  leadsOwned     Lead[]         @relation("LeadOwner")
+  leadsCreated   Lead[]         @relation("LeadCreatedBy")
+
+  // Tasks
+  tasksCreated   Task[]         @relation("TaskCreatedBy")
+  taskAssignments TaskAssignee[]
+
+  // Uploads
+  leadFilesUploaded      LeadFile[]
+  taskFilesUploaded      TaskFile[]
+  inventoryFilesUploaded InventoryFile[]
+
+  activities LeadActivity[]
 }
 
 model Role {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
-  updatedAt DateTime?
-  roleName  String? // exisiting are - [Admin,HR,sales,Marketing,Manager,Employee]
-   organisationId String?
+  updatedAt DateTime  @updatedAt
+  name      String // e.g. Admin, HR, Sales, Marketing, Manager, Employee
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@unique([organisationId, name])
 }
 
 model Permission {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
-  updatedAt DateTime?
-  name      String? // default are - [create_lead,delete_lead,edit_inventory,send_mail]
-   organisationId String?
+  updatedAt DateTime  @updatedAt
+  name      String // e.g. create_lead, delete_lead, edit_inventory, send_mail
+  key       String // machine-readable slug, e.g. "lead.create"
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  roles RolePermission[]
+
+  @@unique([organisationId, key])
 }
 
-model Department {
+// join table: many-to-many Role <-> Permission
+model RolePermission {
+  id String @id @default(uuid())
+
+  roleId String
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+// ─────────────────────────────────────────────
+// LEADS
+// ─────────────────────────────────────────────
+
+model LeadSource {
+  id   String @id @default(uuid())
+  name String // website, referral, cold-call, ad, walk-in
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  leads Lead[]
+}
+
+// customizable per-org pipeline stage (e.g. New, Contacted, Qualified, Proposal, Won, Lost)
+model LeadStatus {
+  id    String @id @default(uuid())
+  name  String
+  order Int    @default(0) // controls pipeline/kanban column order
+  color String? // for UI badges
+  isWon  Boolean @default(false) // marks a "deal closed successfully" stage
+  isLost Boolean @default(false) // marks a "deal closed unsuccessfully" stage
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  leads Lead[]
+
+  @@unique([organisationId, name])
+}
+
+model Lead {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
-  updatedAt DateTime?
-  name      String? // default are - [sales,hr,Accounts,support]
-   organisationId String?
+  updatedAt DateTime  @updatedAt
+
+  name    String
+  email   String?
+  phone   String?
+  company String?
+
+  statusId String?
+  status   LeadStatus? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  value    Float? // deal value
+  notes    String?
+  tags     String? // comma-separated for MVP
+
+  sourceId String?
+  source   LeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  ownerId String? // salesperson currently responsible
+  owner   User? @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User? @relation("LeadCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  convertedAt DateTime?
+
+  tasks         Task[]
+  files         LeadFile[]
+  activities    LeadActivity[]
+  inventoryItems LeadInventoryItem[]
+}
+
+// audit trail / timeline entries for a lead (status changes, calls, notes, etc.)
+model LeadActivity {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  type    String // status_change, note, call, email, whatsapp
+  message String?
+}
+
+model LeadFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  url      String
+  fileName String
+  fileType String? // img, pdf, docx, xlsx, csv
+  fileSize Int?
+
+  uploadedById String?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+}
+
+// ─────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────
+
+model InventoryCategory {
+  id   String @id @default(uuid())
+  name String
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  items InventoryItem[]
+}
+
+model InventoryItem {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  name        String
+  sku         String?
+  description String?
+  quantity    Int     @default(0)
+  unit        String? // pcs, kg, box
+  price       Float?
+  cost        Float?
+  lowStockThreshold Int? @default(0)
+
+  categoryId String?
+  category   InventoryCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  attachments InventoryFile[]
+  leadLinks   LeadInventoryItem[]
+
+  @@unique([organisationId, sku])
+}
+
+model InventoryFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  url      String
+  fileName String
+  fileType String?
+  fileSize Int?
+
+  uploadedById String?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+}
+
+// join table: items quoted/attached to a lead (e.g. a quote or order)
+model LeadInventoryItem {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  quantity Int   @default(1)
+  price    Float? // price at time of quoting, may differ from current item price
+
+  @@unique([leadId, inventoryItemId])
+}
+
+// ─────────────────────────────────────────────
+// TASKS
+// ─────────────────────────────────────────────
+
+// customizable per-org task status (e.g. Pending, In Progress, Completed, Deleted)
+model TaskStatus {
+  id    String @id @default(uuid())
+  name  String
+  order Int    @default(0)
+  color String?
+  isDefault   Boolean @default(false) // status new tasks start in
+  isCompleted Boolean @default(false) // marks a "done" state
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  @@unique([organisationId, name])
+}
+
+// customizable per-org task priority (e.g. Low, Medium, High)
+model TaskPriority {
+  id    String @id @default(uuid())
+  name  String
+  order Int    @default(0)
+  color String?
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  @@unique([organisationId, name])
+}
+
+// customizable per-org task weightage/effort (e.g. Easy, Medium, Hard)
+model TaskWeightage {
+  id    String @id @default(uuid())
+  name  String
+  order Int    @default(0)
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  tasks Task[]
+
+  @@unique([organisationId, name])
 }
 
 model Task {
   id        String    @id @default(uuid())
   createdAt DateTime  @default(now())
-  updatedAt DateTime?
+  updatedAt DateTime  @updatedAt
 
-  title       String?
+  title       String
   description String?
-  leadId      String? // can be null
-  assignedBy  String? // user id
-  assignedTo  String? // user id
-  priority    String? // low,medium,high
-  weightage   String? // easy,medium,hard
-  status      String? // pending,completed,deleted
-  dueDate     String?
-  completedAt String? //null at create
-   organisationId String?
+
+  leadId String?
+  lead   Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User? @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  priorityId String?
+  priority   TaskPriority? @relation(fields: [priorityId], references: [id], onDelete: SetNull)
+
+  weightageId String?
+  weightage   TaskWeightage? @relation(fields: [weightageId], references: [id], onDelete: SetNull)
+
+  statusId String?
+  status   TaskStatus? @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  assignees      TaskAssignee[]
+  files          TaskFile[]
+  notificationSettings TaskNotificationSetting[]
+  notificationLogs     NotificationLog[]
+}
+
+// join table: many-to-many Task <-> User (replaces stringified JSON assignedTo/pcUser)
+model TaskAssignee {
+  id String @id @default(uuid())
+
+  taskId String
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role String @default("assignee") // assignee, watcher (was "pcUser")
+
+  @@unique([taskId, userId, role])
+}
+
+model TaskFile {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  taskId String
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  url      String
+  fileName String
+  fileType String?
+  fileSize Int?
+
+  uploadedById String?
+  uploadedBy   User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+}
+
+// per-task toggle of which channels to notify on (assignment, due date, completion)
+model TaskNotificationSetting {
+  id String @id @default(uuid())
+
+  taskId String
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  channel String // whatsapp, email, push
+  enabled Boolean @default(true)
+
+  @@unique([taskId, channel])
+}
+
+// audit trail of notifications actually sent (so "sendEmail: true" isn't just a hope)
+model NotificationLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  taskId String
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  channel String // whatsapp, email, push
+  status  String // sent, failed, pending
+  error   String?
+  sentAt  DateTime?
+}
+
+// ─────────────────────────────────────────────
+// INTEGRATIONS
+// ─────────────────────────────────────────────
+
+model Settings {
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  apiKey    String?
+  name      String? // gmail, maytapi
+
+  organisationId String?
 }
